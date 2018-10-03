@@ -9,9 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # %%
-#with nidaqmx.Task() as task:
 tiempo_medicion = 1
-sample_rate = 10000
+sample_rate = 700
 samples_per_channel = sample_rate*tiempo_medicion
 time_vec = np.arange(0, tiempo_medicion, 1/sample_rate)
 med = np.nan
@@ -21,9 +20,11 @@ with nidaqmx.Task() as task:
                                     samps_per_chan=samples_per_channel)
     med = task.read(number_of_samples_per_channel=samples_per_channel)
     task.wait_until_done()
+
+# %%
 fourier = np.abs(np.fft.rfft(med))
-fourier_freqs = np.fft.rfftfreq(len(med))
-fourier_freqs[np.argmax(fourier)]
+fourier_freqs = np.fft.rfftfreq(len(med), d=1./sample_rate)
+print(fourier_freqs[np.argmax(fourier)])
 plt.plot(time_vec, med)
 plt.xlabel('tiempo (s)')
 plt.ylabel('tension (V)')
