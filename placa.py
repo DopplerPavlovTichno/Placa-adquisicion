@@ -7,6 +7,7 @@ Created on Wed Oct  3 16:14:13 2018
 import nidaqmx
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 # %%
 tiempo_medicion = 1
@@ -32,3 +33,11 @@ plt.figure()
 plt.plot(fourier_freqs, fourier)
 plt.ylabel('abs(fourier) (ua)')
 plt.xlabel('frecuencia (Hz)')
+# %%
+fname = 'DC.dat'
+coment = 'Entrada: señal DC de 1 V (hecha con una cuadrada de bajisima frecuencia en el generador)'
+if not os.path.isfile(fname):
+    np.savetxt(fname, np.transpose([time_vec, med]), delimiter = ',', header = 'tiempo (s), tension (V)', footer=coment)
+else:
+    print('NO GUARDO NADA')
+    print('Ya existe guachin')
