@@ -10,12 +10,13 @@ import numpy as np
 import os
 
 # %%
-tiempo_medicion = 0.2
-sample_rates = np.arange(10, 310, 1)
+tiempo_medicion = 1
+sample_rates = np.arange(10, 500, 10)
 frecuencia_picos = []
 mediciones = []
+folder = 'aliasing cuadrada input 50Hz'
 for sample_rate in sample_rates:
-    samples_per_channel = sample_rate*tiempo_medicion
+    samples_per_channel = int(sample_rate*tiempo_medicion)
     time_vec = np.arange(0, tiempo_medicion, 1/sample_rate)
     med = np.nan
     with nidaqmx.Task() as task:
@@ -29,7 +30,7 @@ for sample_rate in sample_rates:
     fourier_freqs = np.fft.rfftfreq(len(med), d=1./sample_rate)
     frecuencia = fourier_freqs[np.argmax(fourier)]
     frecuencia_picos.append(frecuencia)
-    '''
+    
     fig, ax = plt.subplots(2)
     ax[0].plot(time_vec, med)
     ax[0].set_xlabel('tiempo (s)')
@@ -37,15 +38,21 @@ for sample_rate in sample_rates:
     ax[1].plot(fourier_freqs, fourier / max(fourier), '.-')
     ax[1].set_xlabel('frecuencia (Hz)')
     ax[1].set_ylabel('abs(fourier) (ua)')
-    ax[1].set_xlim(0, 120)
+    ax[1].set_xlim(0, 251)
     fig.tight_layout()
-    fig.savefig('aliasing senoidales input 100Hz/{}Hz.png'.format(sample_rate))
-    '''
+    fig.savefig('{}/{}Hz.png'.format(folder, sample_rate))
+    
+    fname = '{}/freqadq{}Hz.dat'.format(folder, sample_rate)
+    coment = 'Medimos aliasing. Entrada = cuadrada 2Vpp 50Hz. Variando frecuencia de sampleo de a 10 Hz entre 10 Hz y 500 Hz.'
+    if not os.path.isfile(fname):
+        np.savetxt(fname, np.transpose([time_vec, med]), delimiter = ',', header = 'tiempo (s), tension (V)', footer=coment)
+    else:
+        print('NO GUARDO NADA')
+        print('Ya existe guachin')
 # %%
-fname = 'aliasing_barrido_senoidal.dat'
-coment = 'Medimos aliasing. Entrada = senoidal 2Vpp 100Hz. Variando frecuencia de sampleo de a 10 Hz entre 10 Hz y 300 Hz'
-if not os.path.isfile(fname):
-    np.savetxt(fname, np.transpose([time_vec, med]), delimiter = ',', header = 'tiempo (s), tension (V)', footer=coment)
-else:
-    print('NO GUARDO NADA')
-    print('Ya existe guachin')
+#plt.figure()
+#plt.plot(sample_rates, frecuencia_picos, '.-')
+#plt.xlabel('frecuencia de sampleo (Hz)')
+#plt.ylabel('frecuencia pico de fft (Hz)')
+#plt.savefig('aliasing.png')
+
