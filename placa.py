@@ -11,7 +11,7 @@ import os
 
 # %%
 tiempo_medicion = 1
-sample_rate = 700
+sample_rate = 70
 samples_per_channel = sample_rate*tiempo_medicion
 time_vec = np.arange(0, tiempo_medicion, 1/sample_rate)
 med = np.nan
@@ -25,17 +25,18 @@ with nidaqmx.Task() as task:
 # %%
 fourier = np.abs(np.fft.rfft(med))
 fourier_freqs = np.fft.rfftfreq(len(med), d=1./sample_rate)
-print(fourier_freqs[np.argmax(fourier)])
+frecuencia = fourier_freqs[np.argmax(fourier)]
 plt.plot(time_vec, med)
 plt.xlabel('tiempo (s)')
 plt.ylabel('tension (V)')
 plt.figure()
 plt.plot(fourier_freqs, fourier)
-plt.ylabel('abs(fourier) (ua)')
 plt.xlabel('frecuencia (Hz)')
+plt.ylabel('abs(fourier) (ua)')
+plt.title('{}'.format(frecuencia))
 # %%
-fname = 'DC.dat'
-coment = 'Entrada: señal DC de 1 V (hecha con una cuadrada de bajisima frecuencia en el generador)'
+fname = 'alias1.dat'
+coment = 'Medimos aliasing. Entrada = senoidal 2Vpp 100Hz'
 if not os.path.isfile(fname):
     np.savetxt(fname, np.transpose([time_vec, med]), delimiter = ',', header = 'tiempo (s), tension (V)', footer=coment)
 else:
