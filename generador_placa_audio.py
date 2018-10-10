@@ -47,7 +47,8 @@ def create_callback(gen):
     return callback_output
 
 
-def write(duracion, tipo, amplitud, f_signal=1000, fs=192000, offset=0):
+def write(duracion, tipo, amplitud, f_signal=1000, fs=192000, offset=0,
+          noise=False, noise_amplitude=0.1):
     """
     Envia señal a la placa de audio
     
@@ -76,6 +77,9 @@ def write(duracion, tipo, amplitud, f_signal=1000, fs=192000, offset=0):
         tmp = (np.random.rand(fs*duracion)-0.5)*amplitud+offset
     else:
         raise ValueError("Tipo puede ser 'sin' o 'random'")
+    if noise:
+        tmp_ruido = (np.random.rand(fs*duracion)-0.5)*noise_amplitude
+        tmp += tmp_ruido
     stream_out = pa.open(format=pyaudio.paFloat32,
                          channels=1,
                          rate=fs,
