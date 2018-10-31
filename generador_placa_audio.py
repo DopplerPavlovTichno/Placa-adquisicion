@@ -30,6 +30,23 @@ def senoidal(f_sampleo=44100, frecuencia=100, num_puntos=1024, vpp=1.,
             + offset).astype(np.float32)
 
 
+def cuadrada(f_sampleo=44100, frecuencia=100, num_puntos=1024, minimo=0.,
+             maximo=1.):
+    """
+    Genera una señal cuadrada de frecuencia y duracion definida, con valores
+    maximos y minimos definidos
+    f_sampleo(float) = frecuencia de sampleo de la señal
+    frecuencia(float) = frecuencia de la señal
+    duracion(float) = duracion de la señal
+    minimo = valor minimo de la señal
+    maximo = valor maximos de la señal
+    Devuelve array
+    """
+    señal = senoidal(f_sampleo=f_sampleo, frecuencia=frecuencia,
+                     num_puntos=num_puntos)
+    return (maximo-minimo)*(np.sign(señal)/2+1/2)+minimo
+
+
 def take(arr, partlen):
     larr = len(arr)
     while True:
@@ -75,6 +92,10 @@ def write(duracion, tipo, amplitud, f_signal=1000, fs=192000, offset=0,
                        vpp=amplitud, offset=offset)
     elif tipo=='random':
         tmp = (np.random.rand(fs*duracion)-0.5)*amplitud+offset
+    elif tipo=='cuadrada':
+        tmp = cuadrada(f_sampleo=fs, frecuencia=f_signal,
+                       num_puntos=fs*duracion,
+                       minimo=offset-amplitud/2, maximo=offset+amplitud/2)
     else:
         raise ValueError("Tipo puede ser 'sin' o 'random'")
     if noise:

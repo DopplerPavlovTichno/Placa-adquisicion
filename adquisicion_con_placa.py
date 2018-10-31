@@ -58,10 +58,10 @@ def medir(device, canales, sample_rate, duracion, min_vals = -5.0, max_vals = 5.
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    device = 'Dev6'
-    canales = ['ai1']
+    device = 'Dev7'
+    canales = ['ai0']
     sample_rate = 10000
-    duracion = 1
+    duracion = 3
     time, med = medir(device=device, canales=canales, sample_rate=sample_rate,
                 duracion=duracion)
     plt.plot(time, med)
