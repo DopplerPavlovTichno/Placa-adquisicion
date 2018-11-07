@@ -22,7 +22,11 @@ import pid_class
 resource_name_control = 'USB0::0x0699::0x0346::C033248::INSTR'
 resource_name_perturb = 'USB0::0x0699::0x0346::C036493::INSTR'
 rm = pyvisa.ResourceManager()
+<<<<<<< HEAD
 print(rm.list_resources())
+=======
+print(rm.list_resources()) # con esto veo el string que le tengo que dar en resource_name por si falla
+>>>>>>> d3fd99064952438d6ef56a8d98cd2b74a4ba6a69
 # Abre la sesion VISA de comunicacion
 fungen_control = rm.open_resource(resource_name_control, resource_pyclass=MessageBasedResource)
 fungen_perturb = rm.open_resource(resource_name_perturb, resource_pyclass=MessageBasedResource)
@@ -52,6 +56,7 @@ fig.savefig('calibracion_led-fotodiodo_luzapagada.png')
 np.savetxt('calibracion_led-fotodiodo_luzapagada.dat', np.transpose([tension_led, tension_fotodiodo]))
 
 # %%
+<<<<<<< HEAD
 datos_series = []
 control_series = []
 error_series = []
@@ -117,3 +122,41 @@ ax.set_ylabel('Tension (V)')
 #fig.savefig('perturbando_con_tubo_luz.png')
 #np.savetxt('perturbando_con_tubo_luz.dat', np.transpose([time_vec, datos_series, np.asarray(error_series)]))
 
+=======
+    
+datosappend = []
+def callback(task_handle, every_n_samples_event_type, 
+             number_of_samples, callback_data):
+    global datos
+    datos = task.read(number_of_samples)
+#    fft_senial = abs(np.fft.rfft(datos-np.mean(datos)))
+#    frecuencias_fft = np.fft.rfftfreq(len(datos),1/sample_rate)
+#    frecuencia_detectada = frecuencias_fft[np.argmax(fft_senial)]
+#    fungen.write('FREQ %f' % frecuencia_detectada)
+    offset = np.mean(datos)*100
+    fungen.write('VOLT:OFFS % f' % offset)
+    
+#    print(frecuencia_detectada)
+#    plt.plot(datos)
+    datosappend.append([x for x in datos])
+    return 0
+fungen.write('VOLT % f' % 0.02)
+frecuencia_senial = 25
+stream_out = generador_placa_audio.write(duracion = 5, tipo = 'sin', 
+                                         amplitud = 2, f_signal = frecuencia_senial)
+device = 'Dev7'
+canales = ['ai0']
+sample_rate = int(250000/len(canales))
+with nidaqmx.Task() as task:
+    for i, channel in enumerate(canales):
+        task.ai_channels.add_ai_voltage_chan('{}/{}'.format(device, channel))
+    task.timing.cfg_samp_clk_timing(sample_rate, sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+    task.register_every_n_samples_acquired_into_buffer_event(sample_interval=100000, 
+                                                             callback_method=callback)
+    task.start()
+    fungen.write('output1 on')
+    time.sleep(5)
+    task.stop()
+fungen.write('output1 off')
+stream_out.close()
+>>>>>>> d3fd99064952438d6ef56a8d98cd2b74a4ba6a69
