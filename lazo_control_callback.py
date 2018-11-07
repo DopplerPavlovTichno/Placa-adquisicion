@@ -31,11 +31,15 @@ fungen_perturb = rm.open_resource(resource_name_perturb, resource_pyclass=Messag
 # %% Calibracion sensor
 device = 'Dev6'
 canales = ['ai0']
-fungen_perturb.write('output1 off')
+fungen_perturb.write('output1 on')
 fungen_control.write('output1 on')
 fungen_control.write('VOLT % f' % 0.02)
 fungen_control.write('FREQ % f' % 0.000001)
-tension_led = np.linspace(0, 6, num=100)
+fungen_perturb.write('VOLT:OFFS % f' % 4)
+fungen_perturb.write('FREQ % f' % 0.000001)
+#fungen_perturb.write('VOLT % f' % 0.02)
+#fungen_perturb.write('FREQ % f' % 0.000001)
+tension_led = np.linspace(0, 8, num=100)
 tension_fotodiodo = np.zeros_like(tension_led)
 error_fotodiodo = np.zeros_like(tension_led)
 for index, offset in enumerate(tension_led):
@@ -47,16 +51,25 @@ fungen_control.write('output1 off')
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.plot(tension_led, tension_fotodiodo)
-ax.set_xlabel('Tension led (V)')
+ax.set_xlabel('Tension led perturbacion (V)')
 ax.set_ylabel('Tension R fotodiodo (V)')
-fig.savefig('calibracion_led-fotodiodo_luzapagada.png')
-np.savetxt('calibracion_led-fotodiodo_luzapagada.dat', np.transpose([tension_led, tension_fotodiodo]))
+#fig.savefig('calibracion_led-fotodiodo_luzprendida_perturbprendido4V.png')
+#np.savetxt('calibracion_ledperturbacion-fotodiodo_luzprendida_perturbprendido4V.dat', np.transpose([tension_led, tension_fotodiodo]))
 
 # %%
 datos_series = []
 control_series = []
 error_series = []
 previous = 0
+
+calibracion = np.loadtxt('calibracion_led-fotodiodo_luzapagada.dat')
+tension_led = [x[0] for x in calibracion]
+tension_fotodiodo = [x[1] for x in calibracion]
+
+calibracionpert = np.loadtxt('calibracion_ledperturbacion-fotodiodo_luzapagada.dat')
+tension_led_pert = [x[0] for x in calibracionpert]
+tension_fotodiodo_pert = [x[1] for x in calibracionpert]
+
 def callback(task_handle, every_n_samples_event_type, 
              number_of_samples, callback_data):
     global previous
@@ -64,18 +77,19 @@ def callback(task_handle, every_n_samples_event_type,
     pid_value = lazo.calculate(datos[0])
     v_fotodiodo_previous = np.interp(previous, tension_led, tension_fotodiodo)
     actuador = np.interp(pid_value + v_fotodiodo_previous, tension_fotodiodo, tension_led)# + previous
+    actuador = pid_value + previous
     control_series.append(actuador)
     error_series.append(lazo.last_error)
     fungen_control.write('VOLT:OFFS % f' % actuador)
-#    print(datos[0])
-    print(previous)
+#    print(previous)
     previous = actuador
     datos_series.append(datos[0])
     return 0
 
-fungen_perturb.write('VOLT:OFFS % f' % 2)
-fungen_perturb.write('VOLT % f' % 2)
-fungen_perturb.write('FREQ % f' % 1)
+freq_pert = 1
+fungen_perturb.write('VOLT:OFFS % f' % 3)
+fungen_perturb.write('VOLT % f' % 1.5)
+fungen_perturb.write('FREQ % f' % freq_pert)
 fungen_perturb.write('output1 on')
 
 fungen_control.write('VOLT % f' % 0.02)
@@ -85,12 +99,25 @@ fungen_control.write('output1 on')
 
 device = 'Dev6'
 canales = ['ai0']
-callback_dt = 0.1
+callback_dt = 0.02
 sample_rate = int(1/callback_dt)
-kp = 1
-ki = 0.0
+tipo_lazo = 'P'
+kp_crit = 110
+p_crit = 2
+ki = 0
 kd = 0.0
-setpoint = 0.06
+if tipo_lazo == 'P':
+    kp = 100
+    ki = 0
+    kd = 0.0
+elif tipo_lazo == 'PI':
+    kp = 0.45*kp_crit
+    ki = 1.2*kp/p_crit*callback_dt
+else:
+    kp = 0.6*kp_crit
+    ki = 2*kp/p_crit*callback_dt
+    kd = kp*p_crit*callback_dt
+setpoint = 0.04
 lazo = pid_class.PIDController(setpoint=setpoint, dt=callback_dt,
                                kp=kp, ki=ki, kd=kd)
 
@@ -111,10 +138,7 @@ ax = fig.add_subplot(111)
 ax.plot(time_vec, datos_series, label='sensor')
 ax.axhline(y=setpoint, label='objetivo', c='red')
 ax.plot(time_vec, np.asarray(error_series), label='error')
-#plt.plot(time_vec, np.asarray(control_series), label='control')
 ax.legend()
 ax.set_xlabel('Tiempo (s)')
 ax.set_ylabel('Tension (V)')
-#fig.savefig('perturbando_con_tubo_luz.png')
-#np.savetxt('perturbando_con_tubo_luz.dat', np.transpose([time_vec, datos_series, np.asarray(error_series)]))
-
+#fig.savefig('proporcional_kp{}_pert{}Hz.png'.format(kp, freq_pert))
