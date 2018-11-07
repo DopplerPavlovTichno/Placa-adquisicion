@@ -20,34 +20,44 @@ import time
 
 resource_name = 'USB0::0x0699::0x0346::C036492::INSTR'
 rm = pyvisa.ResourceManager()
-#print(rm.list_resources()) # con esto veo el string que le tengo que dar en resource_name por si falla
+print(rm.list_resources()) # con esto veo el string que le tengo que dar en resource_name por si falla
 # Abre la sesion VISA de comunicacion
 fungen = rm.open_resource(resource_name, resource_pyclass=MessageBasedResource)
 
 # %%
-tiempo_medicion = 3
-
+    
+datosappend = []
+def callback(task_handle, every_n_samples_event_type, 
+             number_of_samples, callback_data):
+    global datos
+    datos = task.read(number_of_samples)
+#    fft_senial = abs(np.fft.rfft(datos-np.mean(datos)))
+#    frecuencias_fft = np.fft.rfftfreq(len(datos),1/sample_rate)
+#    frecuencia_detectada = frecuencias_fft[np.argmax(fft_senial)]
+#    fungen.write('FREQ %f' % frecuencia_detectada)
+    offset = np.mean(datos)*100
+    fungen.write('VOLT:OFFS % f' % offset)
+    
+#    print(frecuencia_detectada)
+#    plt.plot(datos)
+    datosappend.append([x for x in datos])
+    return 0
+fungen.write('VOLT % f' % 0.02)
+frecuencia_senial = 25
+stream_out = generador_placa_audio.write(duracion = 5, tipo = 'sin', 
+                                         amplitud = 2, f_signal = frecuencia_senial)
 device = 'Dev7'
-canales = ['ai0', 'ai1']
+canales = ['ai0']
 sample_rate = int(250000/len(canales))
-for x in range(5):
-    frecuencia_senial = 1+9*np.random.rand()
-    stream_out = generador_placa_audio.write(duracion = 5, tipo = 'sin', amplitud = 2, f_signal = frecuencia_senial)
-    time_vec, med = adquisicion_con_placa.medir(device, canales, sample_rate,
-                                                tiempo_medicion)    
-    fotodiodo = med[0]
-    placa_audio = med[1]
-    fft_senial = abs(np.fft.rfft(fotodiodo-np.mean(fotodiodo)))
-    frecuencias_fft = np.fft.rfftfreq(len(fotodiodo),1/sample_rate)
-    frecuencia_detectada = frecuencias_fft[np.argmax(fft_senial)]
-    fungen.write('FREQ %f' % frecuencia_detectada)
+with nidaqmx.Task() as task:
+    for i, channel in enumerate(canales):
+        task.ai_channels.add_ai_voltage_chan('{}/{}'.format(device, channel))
+    task.timing.cfg_samp_clk_timing(sample_rate, sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+    task.register_every_n_samples_acquired_into_buffer_event(sample_interval=100000, 
+                                                             callback_method=callback)
+    task.start()
     fungen.write('output1 on')
     time.sleep(5)
-    stream_out.close()
-    fungen.write('output1 off')
-    print(frecuencia_senial)
-#plt.figure(1)
-#plt.plot(time_vec,placa_audio)
-#
-#plt.figure(2)
-#plt.plot(time_vec, fotodiodo)
+    task.stop()
+fungen.write('output1 off')
+stream_out.close()
