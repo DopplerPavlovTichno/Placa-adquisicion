@@ -19,14 +19,14 @@ import time
 import pid_class
 ## inicio comunicacion con el generador de funciones
 
-resource_name_control = 'USB0::0x0699::0x0346::C033248::INSTR'
+resource_name_control = 'USB0::0x0699::0x0346::C034198::INSTR'
 resource_name_perturb = 'USB0::0x0699::0x0346::C036493::INSTR'
 rm = pyvisa.ResourceManager()
 
 print(rm.list_resources()) # con esto veo el string que le tengo que dar en resource_name por si falla
 # Abre la sesion VISA de comunicacion
-fungen_control = rm.open_resource(resource_name_control, resource_pyclass=MessageBasedResource)
-fungen_perturb = rm.open_resource(resource_name_perturb, resource_pyclass=MessageBasedResource)
+fungen_perturb = rm.open_resource(resource_name_control, resource_pyclass=MessageBasedResource)
+fungen_control = rm.open_resource(resource_name_perturb, resource_pyclass=MessageBasedResource)
 
 # %% Calibracion sensor
 device = 'Dev6'
@@ -57,88 +57,99 @@ ax.set_ylabel('Tension R fotodiodo (V)')
 #np.savetxt('calibracion_ledperturbacion-fotodiodo_luzprendida_perturbprendido4V.dat', np.transpose([tension_led, tension_fotodiodo]))
 
 # %%
-datos_series = []
-control_series = []
-error_series = []
-previous = 0
-
-calibracion = np.loadtxt('calibracion_led-fotodiodo_luzapagada.dat')
-tension_led = [x[0] for x in calibracion]
-tension_fotodiodo = [x[1] for x in calibracion]
-
-calibracionpert = np.loadtxt('calibracion_ledperturbacion-fotodiodo_luzapagada.dat')
-tension_led_pert = [x[0] for x in calibracionpert]
-tension_fotodiodo_pert = [x[1] for x in calibracionpert]
-
-def callback(task_handle, every_n_samples_event_type, 
-             number_of_samples, callback_data):
-    global previous
-    datos = task.read(number_of_samples)
-    pid_value = lazo.calculate(datos[0])
-    v_fotodiodo_previous = np.interp(previous, tension_led, tension_fotodiodo)
-    actuador = np.interp(pid_value + v_fotodiodo_previous, tension_fotodiodo, tension_led)# + previous
-    actuador = pid_value + previous
-    control_series.append(actuador)
-    error_series.append(lazo.last_error)
-    fungen_control.write('VOLT:OFFS % f' % actuador)
-#    print(previous)
-    previous = actuador
-    datos_series.append(datos[0])
-    return 0
-
-freq_pert = 1
-fungen_perturb.write('VOLT:OFFS % f' % 3)
-fungen_perturb.write('VOLT % f' % 1.5)
-fungen_perturb.write('FREQ % f' % freq_pert)
-fungen_perturb.write('output1 on')
-
-fungen_control.write('VOLT % f' % 0.02)
-fungen_control.write('FREQ % f' % 0.000001)
-fungen_control.write('VOLT:OFFS % f' % 0)
-fungen_control.write('output1 on')
-
-device = 'Dev6'
-canales = ['ai0']
-callback_dt = 0.02
-sample_rate = int(1/callback_dt)
-tipo_lazo = 'P'
-kp_crit = 110
-p_crit = 2
-ki = 0
-kd = 0.0
-if tipo_lazo == 'P':
-    kp = 100
-    ki = 0
-    kd = 0.0
-elif tipo_lazo == 'PI':
-    kp = 0.45*kp_crit
-    ki = 1.2*kp/p_crit*callback_dt
-else:
-    kp = 0.6*kp_crit
-    ki = 2*kp/p_crit*callback_dt
-    kd = kp*p_crit*callback_dt
-setpoint = 0.04
-lazo = pid_class.PIDController(setpoint=setpoint, dt=callback_dt,
-                               kp=kp, ki=ki, kd=kd)
-
-with nidaqmx.Task() as task:
-    for i, channel in enumerate(canales):
-        task.ai_channels.add_ai_voltage_chan('{}/{}'.format(device, channel))
-    task.timing.cfg_samp_clk_timing(sample_rate,
-                                    sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
-    task.register_every_n_samples_acquired_into_buffer_event(sample_interval=int(callback_dt*sample_rate), 
-                                                             callback_method=callback)
-    task.start()
-    time.sleep(5)
-    task.stop()
-
-time_vec = np.arange(len(datos_series))/sample_rate
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.plot(time_vec, datos_series, label='sensor')
-ax.axhline(y=setpoint, label='objetivo', c='red')
-ax.plot(time_vec, np.asarray(error_series), label='error')
-ax.legend()
-ax.set_xlabel('Tiempo (s)')
-ax.set_ylabel('Tension (V)')
-#fig.savefig('proporcional_kp{}_pert{}Hz.png'.format(kp, freq_pert))
+#kps = [1, 5, 10, 20, 40, 70, 100]
+kps = [25, 40]
+kis = [10, 100, 500, 1000, 2000]
+kps = [40]
+kis = [100]
+memoria = [5, 10, 100, 1000]
+for kp in kps:
+    for ki in kis:
+        for mem in memoria:
+            datos_series = []
+            control_series = []
+            error_series = []
+            previous = 0
+        #    
+        #    calibracion = np.loadtxt('calibracion_led-fotodiodo_luzapagada.dat')
+        #    tension_led = [x[0] for x in calibracion]
+        #    tension_fotodiodo = [x[1] for x in calibracion]
+        #    
+        #    calibracionpert = np.loadtxt('calibracion_ledperturbacion-fotodiodo_luzapagada.dat')
+        #    tension_led_pert = [x[0] for x in calibracionpert]
+        #    tension_fotodiodo_pert = [x[1] for x in calibracionpert]
+            
+            def callback(task_handle, every_n_samples_event_type, 
+                         number_of_samples, callback_data):
+                global previous
+                datos = task.read(number_of_samples)
+                pid_value = lazo.calculate(datos[0])
+                v_fotodiodo_previous = np.interp(previous, tension_led, tension_fotodiodo)
+                actuador = np.interp(pid_value + v_fotodiodo_previous, tension_fotodiodo, tension_led)# + previous
+                actuador = pid_value# + previous
+                control_series.append(actuador)
+                error_series.append(lazo.last_error)
+                fungen_control.write('VOLT:OFFS % f' % actuador)
+                previous = actuador
+                datos_series.append(datos[0])
+                return 0
+            
+            freq_pert = 0.0000001
+            fungen_perturb.write('VOLT:OFFS % f' % 3.5)
+            fungen_perturb.write('VOLT % f' % 0.01)
+            fungen_perturb.write('FREQ % f' % freq_pert)
+            fungen_perturb.write('output1 on')
+            
+            fungen_control.write('VOLT % f' % 0.02)
+            fungen_control.write('FREQ % f' % 0.000001)
+            fungen_control.write('VOLT:OFFS % f' % 0)
+            fungen_control.write('output1 on')
+            
+            device = 'Dev6'
+            canales = ['ai0']
+            callback_dt = 0.02
+            sample_rate = int(1/callback_dt)
+            tipo_lazo = 'PI'
+    #        kp_crit = 110
+    #        p_crit = 2
+    #        ki = 0
+            kd = 0.0
+    #        if tipo_lazo == 'P':
+    #            #kp = 10
+    #            ki = 0
+    #            kd = 0.0
+    #        elif tipo_lazo == 'PI':
+    #    #        kp = 0.45*kp_crit
+    #    #        ki = 1.2*kp/p_crit*callback_dt
+    #            ki = 100
+    #        else:
+    #            kp = 0.6*kp_crit
+    #            ki = 2*kp/p_crit*callback_dt
+    #            kd = kp*p_crit*callback_dt
+            setpoint = 0.06
+            lazo = pid_class.PIDController(setpoint=setpoint, dt=callback_dt,
+                                           kp=kp, ki=ki, kd=kd, offset=1.4, 
+                                           cantidad_errores=mem)
+            
+            with nidaqmx.Task() as task:
+                for i, channel in enumerate(canales):
+                    task.ai_channels.add_ai_voltage_chan('{}/{}'.format(device, channel))
+                task.timing.cfg_samp_clk_timing(sample_rate,
+                                                sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+                task.register_every_n_samples_acquired_into_buffer_event(sample_interval=int(callback_dt*sample_rate), 
+                                                                         callback_method=callback)
+                task.start()
+                time.sleep(5)
+                task.stop()
+            
+            time_vec = np.arange(len(datos_series))/sample_rate
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(time_vec, datos_series, label='sensor')
+            ax.axhline(y=setpoint, label='objetivo', c='red')
+            ax.plot(time_vec, np.asarray(error_series), label='error')
+            ax.legend()
+            ax.set_xlabel('Tiempo (s)')
+            ax.set_ylabel('Tension (V)')
+            fig.savefig('lazoPI_kp{}_ki{}_memoria{}_pertcte.png'.format(kp, ki, mem, freq_pert))
+            np.savetxt('lazoPI_kp{}_ki{}_memoria{}_pertcte.dat'.format(kp, ki, mem, freq_pert), np.transpose([time_vec, datos_series, error_series]))
